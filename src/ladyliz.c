@@ -28,20 +28,6 @@ void DisplayWarning(char* msg){
 	return;
 }
 
-// Reverse the order of the caracters of the two keys
-// Return nothing
-void ReverseKeys(char* key1, char* key2){
-	char text1[ASCII_TABLE_SIZE];
-	char text2[ASCII_TABLE_SIZE];
-	int i;
-	for (i=0; i<ASCII_TABLE_SIZE; i++){
-		text1[i] = key1[ASCII_TABLE_SIZE-1-i];
-		text2[i] = key2[ASCII_TABLE_SIZE-1-i];
-	}
-	strcpy(key1, text1);
-	strcpy(key2, text2);
-	return;
-}
 
 // Shift forward all the caracters of both keys 'shift' times
 // Return nothing
@@ -70,12 +56,15 @@ void ShiftKey(char* key1, char* key2, int shift){
 // Compute the IB and update the two new keys
 // The encrypted text is stored in IV
 // Return nothing
-void Encryption(char* plainpair, char* key1, char* key2, char* ib, char* iv){
+void Encryption(char* plainpair, char* key1, char* key2, char* iv){
 	int i=0; int j=0; int k=0; int l=0;
 	int index1, index2;
 	char char_tmp;
-// Determine the position of the first caracter of the plainpair and the first caracter of IV, sum the two
-// numbers to find the first caracter of IB in key1
+	char ib[2];
+	char text_tmp[ASCII_TABLE_SIZE];
+
+// Determine the position of the first caracter of the plainpair and the first caracter of IV in key1
+// sum the two numbers to find the first caracter of IB in key1
 	while (plainpair[0] != key1[i])
 		i++;
 	while (iv[0] != key1[j])
@@ -83,8 +72,8 @@ void Encryption(char* plainpair, char* key1, char* key2, char* ib, char* iv){
 	index1 = (i+j+1)%95;
 	ib[0] = key1[index1];
 
-// Determine the position of the second caracter of the plainpair and the second caracter of IV, sum the two
-// numbers to find the second caracter of IB in key1
+// Determine the position of the second caracter of the plainpair and the second caracter of IV in key1
+// sum the two numbers to find the second caracter of IB in key1
 	i = 0;
 	j = 0;
 	while (plainpair[1] != key1[i])
@@ -100,6 +89,7 @@ void Encryption(char* plainpair, char* key1, char* key2, char* ib, char* iv){
 		iv[0] = key2[index2-index1-1];
 	else																// wrapping around the key
 		iv[0] = key2[index2+95-index1-1];
+
 
 // Find the distance between IV[0] and the first caracter of IB in key2
 // This value is the position of the second encrypted caracter (IV[1]) in key1
@@ -132,16 +122,20 @@ void Encryption(char* plainpair, char* key1, char* key2, char* ib, char* iv){
 		key2[l] = char_tmp;
 	}
 
-// Reverse the order of the two keys if the first distance (used to get the first ciphertext caracter) is odd
-	if (((index2 > index1)&&((index2-index1)%2 == 1))||((index2 < index1)&&((index2+95-index1)%2 == 1)))
-		ReverseKeys(key1, key2);
+// Swap the two keys if the first distance (used to get the first ciphertext caracter) is odd
+	if (((index2 > index1)&&((index2-index1)%2 == 1))||((index2 =< index1)&&((index2+95-index1)%2 == 1))){
+		strcpy(text_tmp, key1);
+		strcpy(key1, key2);
+		strcpy(key2, text_tmp);
+	}
 
 // Shift all the caracters of the two keys by the value of the second distance (used to get the second
 // ciphertext caracter)
 	if (j > i)
 		ShiftKey(key1, key2, j-i);
-	else																// wrapping arround the key
+	else															// wrapping arround the key
 		ShiftKey(key1, key2, j+95-i);
+
 	return;
 }
 
@@ -150,20 +144,13 @@ void Encryption(char* plainpair, char* key1, char* key2, char* ib, char* iv){
 // and the IV 'iv'
 // Return nothing
 void EncryptMessage(char* plaintext, char* ciphertext, char* key1, char* key2, char* iv){
-	char ib[2];
-	int k;
-	int len_plaintext = strlen(plaintext);
-	for (k=0; 2*k < len_plaintext; k++){
-		Encryption((plaintext+2*k), key1, key2, ib, iv);
+	int k=0;
+	while ((plaintext+2*k)[0] != '\n'){
+		Encryption((plaintext+2*k), key1, key2, iv);
 		strcat(ciphertext, iv);
-		printf("plaintext = %s\n", plaintext+2*k);
-		printf("ciphertext = %s\n", ciphertext);
-		printf("IB = %s\n", ib);
-		printf("IV = %s\n", iv);
-		printf("key1 = %s\n", key1);
-		printf("key2 = %s\n", key2);
-		puts("");
+		k++;
 	}
+	printf("CIPHERTEXT = %s\n", ciphertext);
 	return;
 }
 

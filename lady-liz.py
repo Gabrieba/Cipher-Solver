@@ -49,40 +49,24 @@ import sys
 # Define printable ASCII characters, excluding whitespace control characters
 PRINTABLE_ASCII = string.printable.replace('\t\n\r\x0b\x0c', '')
 
-def measure_time(func):
-    """
-    Decorator to measure execution time of functions.
-    
-    Args:
-        func: The function to measure
-        
-    Returns:
-        tuple: Function results and execution time
-    """
-    def wrapper(*args, **kwargs):
-        start_time = time.perf_counter()
-        result = func(*args, **kwargs)
-        end_time = time.perf_counter()
-        execution_time = end_time - start_time
-        return (*result, execution_time)
-    return wrapper
+
 
 def create_keyed_alphabets(keywords):
     """
     Create keyed alphabets from the provided keywords.
-    
+
     Args:
         keywords (list): List of two keyword strings
-        
+
     Returns:
         list: Two keyed alphabets derived from the keywords
-        
+
     Raises:
         ValueError: If fewer than 2 keywords provided or if keywords contain invalid characters
     """
     if len(keywords) < 2:
         raise ValueError("Two keywords are required")
-    
+
     if not all(all(char in PRINTABLE_ASCII for char in keyword) for keyword in keywords):
         raise ValueError("Keywords must contain only printable ASCII characters")
 
@@ -98,11 +82,11 @@ def create_keyed_alphabets(keywords):
 def rotate_alphabet(alphabet, shift_amount):
     """
     Rotate an alphabet string by the specified amount.
-    
+
     Args:
         alphabet (str): The alphabet to rotate
         shift_amount (int): Number of positions to rotate
-        
+
     Returns:
         str: Rotated alphabet
     """
@@ -111,7 +95,7 @@ def rotate_alphabet(alphabet, shift_amount):
 def generate_unique_shuffle_key():
     """
     Generate a randomly shuffled key using all printable ASCII characters.
-    
+
     Returns:
         str: Shuffled printable ASCII characters
     """
@@ -122,16 +106,16 @@ def generate_unique_shuffle_key():
 def preprocess_message(message):
     """
     Prepare message for encryption by filtering characters and handling padding.
-    
+
     Args:
         message (str): Original message
-        
+
     Returns:
         tuple: (filtered_message, line_break_positions, padding_added_flag)
     """
     printable_count = 0
     line_breaks = []
-    
+
     # Track position of line breaks in original message
     for char in message:
         if char in PRINTABLE_ASCII:
@@ -141,25 +125,25 @@ def preprocess_message(message):
 
     # Filter out non-printable characters
     filtered_message = ''.join(filter(lambda x: x in PRINTABLE_ASCII, message))
-    
+
     # Add padding if necessary for even length
     padding_added = False
     if len(filtered_message) % 2 != 0:
         filtered_message += secrets.choice(PRINTABLE_ASCII)
         padding_added = True
-        
+
     return filtered_message, line_breaks, padding_added
 
-@measure_time
+
 def core_encrypt(filtered_message, keyed_alphabets, iv):
     """
     Core encryption function implementing the Lady Liz algorithm.
-    
+
     Args:
         filtered_message (str): Preprocessed message to encrypt
         keyed_alphabets (list): List of two keyed alphabets
         iv (str): Two-character initialization vector
-        
+
     Returns:
         tuple: (encrypted_message, final_keyed_alphabets)
     """
@@ -175,23 +159,23 @@ def core_encrypt(filtered_message, keyed_alphabets, iv):
         next_index = (current_index + 1) % cycle_length
 
         # Calculate positions for first round of substitution
-        first_pos = ((keyed_alphabets[current_index].index(current_iv[0]) + 1) + 
+        first_pos = ((keyed_alphabets[current_index].index(current_iv[0]) + 1) +
                     (keyed_alphabets[current_index].index(digraph[0]) + 1) - 1) % 95
-        second_pos = ((keyed_alphabets[current_index].index(current_iv[1]) + 1) + 
+        second_pos = ((keyed_alphabets[current_index].index(current_iv[1]) + 1) +
                      (keyed_alphabets[current_index].index(digraph[1]) + 1) - 1) % 95
-        intermediate_block = (keyed_alphabets[current_index][first_pos] + 
+        intermediate_block = (keyed_alphabets[current_index][first_pos] +
                             keyed_alphabets[current_index][second_pos])
 
         # Calculate distances and perform second round of substitution
         if intermediate_block[0] == intermediate_block[1]:
             first_letter_distance = 95
         else:
-            first_letter_distance = (keyed_alphabets[current_index].index(intermediate_block[1]) - 
+            first_letter_distance = (keyed_alphabets[current_index].index(intermediate_block[1]) -
                                    keyed_alphabets[current_index].index(intermediate_block[0])) % 95
 
         first_letter = keyed_alphabets[next_index][(first_letter_distance + 94) % 95]
 
-        second_letter_distance = (keyed_alphabets[next_index].index(intermediate_block[0]) - 
+        second_letter_distance = (keyed_alphabets[next_index].index(intermediate_block[0]) -
                                 keyed_alphabets[next_index].index(first_letter)) % 95
         second_letter = keyed_alphabets[current_index][(second_letter_distance + 94) % 95]
 
@@ -244,21 +228,21 @@ def core_encrypt(filtered_message, keyed_alphabets, iv):
 def encrypt_message(message, keyed_alphabets, iv):
     """
     High-level encryption function that handles preprocessing and core encryption.
-    
+
     Args:
         message (str): Original message to encrypt
         keyed_alphabets (list): List of two keyed alphabets
         iv (str): Two-character initialization vector
-        
+
     Returns:
         tuple: (encrypted_message, line_breaks, padding_added, encryption_time)
-        
+
     Raises:
         ValueError: If iv or keyed_alphabets are invalid
     """
     if len(iv) != 2 or not all(char in PRINTABLE_ASCII for char in iv):
         raise ValueError("IV must be exactly 2 printable ASCII characters")
-        
+
     if len(keyed_alphabets) != 2 or not all(len(alpha) == len(PRINTABLE_ASCII) for alpha in keyed_alphabets):
         raise ValueError("Invalid keyed alphabets format")
 
@@ -266,19 +250,19 @@ def encrypt_message(message, keyed_alphabets, iv):
     encrypted_message, final_keyed_alphabets, encryption_time = core_encrypt(
         filtered_message, keyed_alphabets.copy(), iv
     )
-    
+
     return encrypted_message, line_breaks, padding_added, encryption_time
 
-@measure_time
+
 def core_decrypt(ciphertext, keyed_alphabets, iv):
     """
     Core decryption function implementing the Lady Liz algorithm.
-    
+
     Args:
         ciphertext (str): Encrypted message to decrypt
         keyed_alphabets (list): List of two keyed alphabets
         iv (str): Two-character initialization vector
-        
+
     Returns:
         tuple: (decrypted_message, final_keyed_alphabets)
     """
@@ -308,9 +292,9 @@ def core_decrypt(ciphertext, keyed_alphabets, iv):
         intermediate_block = intermediate_first_letter + intermediate_second_letter
 
         # Recover original plaintext
-        first_pos = (keyed_alphabets[current_index].index(intermediate_block[0]) - 
+        first_pos = (keyed_alphabets[current_index].index(intermediate_block[0]) -
                     (keyed_alphabets[current_index].index(current_iv[0]) + 1)) % 95
-        second_pos = (keyed_alphabets[current_index].index(intermediate_block[1]) - 
+        second_pos = (keyed_alphabets[current_index].index(intermediate_block[1]) -
                      (keyed_alphabets[current_index].index(current_iv[1]) + 1)) % 95
         plaintext_digraph = keyed_alphabets[current_index][first_pos] + keyed_alphabets[current_index][second_pos]
 
@@ -362,23 +346,23 @@ def core_decrypt(ciphertext, keyed_alphabets, iv):
 def decrypt_message(ciphertext, keyed_alphabets, iv, line_breaks, padding_added):
     """
     High-level decryption function that handles core decryption and post-processing.
-    
+
     Args:
         ciphertext (str): Encrypted message to decrypt
         keyed_alphabets (list): List of two keyed alphabets
         iv (str): Two-character initialization vector
         line_breaks (list): Positions of original line breaks
         padding_added (bool): Whether padding was added during encryption
-        
+
     Returns:
         tuple: (decrypted_message, decryption_time)
-        
+
     Raises:
         ValueError: If iv or keyed_alphabets are invalid
     """
     if len(iv) != 2 or not all(char in PRINTABLE_ASCII for char in iv):
         raise ValueError("IV must be exactly 2 printable ASCII characters")
-        
+
     if len(keyed_alphabets) != 2 or not all(len(alpha) == len(PRINTABLE_ASCII) for alpha in keyed_alphabets):
         raise ValueError("Invalid keyed alphabets format")
 
@@ -401,7 +385,7 @@ def decrypt_message(ciphertext, keyed_alphabets, iv, line_breaks, padding_added)
 def log_encryption_process(state_info):
     """
     Log detailed encryption process information to files.
-    
+
     Args:
         state_info (list): List of dictionaries containing state information for each step
     """
@@ -422,7 +406,7 @@ def log_encryption_process(state_info):
             current_iv = step['current_iv']
 
             # Write basic log
-            file.write(f"{digraph} via Key {current_key_index + 1} ({current_key}) & Key {next_key_index + 1} ({next_key}) => {ciphertext}\n")
+            #file.write(f"{digraph} via Key {current_key_index + 1} ({current_key}) & Key {next_key_index + 1} ({next_key}) => {ciphertext}\n")
 
             # Write detailed log
             log_file.write(f"Digraph: {digraph}\n")
@@ -440,7 +424,7 @@ def log_encryption_process(state_info):
 def log_decryption_process(state_info):
     """
     Log detailed decryption process information to files.
-    
+
     Args:
         state_info (list): List of dictionaries containing state information for each step
     """
@@ -479,13 +463,13 @@ def main():
     parser = argparse.ArgumentParser(
         description="Command-line tool for encryption and decryption using a custom cipher."
     )
-    
+
     parser.add_argument("mode", choices=["e", "d"], help="Mode: 'e' for encrypt, 'd' for decrypt")
     parser.add_argument("-iv", required=True, help="Two-letter initialization vector (IV)")
     parser.add_argument("-k1", required=True, help="First key (printable ASCII characters only)")
     parser.add_argument("-k2", required=True, help="Second key (printable ASCII characters only)")
     parser.add_argument("-f", "--file", action="store_true", help="Read input from pt.txt (encryption) or ct.txt (decryption)")
-    
+
     if len(sys.argv) == 1:
         # print usage
         parser.print_help()
@@ -498,15 +482,15 @@ def main():
     if len(args.iv) != 2 or not all(c in PRINTABLE_ASCII for c in args.iv):
         print("Error: IV must be exactly two printable ASCII characters.")
         sys.exit(1)
-    
+
     # Validate keys
     if not all(c in PRINTABLE_ASCII for c in args.k1) or not all(c in PRINTABLE_ASCII for c in args.k2):
         print("Error: Keys must contain only printable ASCII characters.")
         sys.exit(1)
-    
+
     keywords = [args.k1, args.k2]
     keyed_alphabets = create_keyed_alphabets(keywords)
-    
+
     if args.mode == "e":
         # Handle encryption
         if args.file:
@@ -518,21 +502,21 @@ def main():
                 sys.exit(1)
         else:
             message = input("Enter plaintext message: ")
-        
+
         encrypted_message, line_breaks, padding_added, encryption_time = encrypt_message(
             message, keyed_alphabets, args.iv
         )
-        
+
         with open('ct.txt', 'w') as file:
             file.write(encrypted_message)
-        
+
         with open('metadata.txt', 'w') as file:
             file.write(f"line_breaks:{','.join(map(str, line_breaks))}\n")
             file.write(f"padding_added:{padding_added}")
-        
+
         print(f"\nEncrypted message: {' '.join([encrypted_message[i:i+2] for i in range(0, len(encrypted_message), 2)])}")
         print(f"\nCore encryption time: {encryption_time:.5f} seconds")
-    
+
     elif args.mode == "d":
         # Handle decryption
         if args.file:
@@ -542,7 +526,7 @@ def main():
             except FileNotFoundError:
                 print("Error: ct.txt file not found.")
                 sys.exit(1)
-            
+
             try:
                 with open('metadata.txt', 'r') as file:
                     metadata = file.readlines()
@@ -556,11 +540,11 @@ def main():
             ciphertext = input("Enter ciphertext message: ")
             line_breaks = None
             padding_added = False
-        
+
         decrypted_message, decryption_time = decrypt_message(
             ciphertext, keyed_alphabets, args.iv, line_breaks, padding_added
         )
-        
+
         print(f"\nDecrypted message:\n{decrypted_message}")
         print(f"\nCore decryption time: {decryption_time:.5f} seconds")
 
